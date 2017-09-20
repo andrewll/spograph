@@ -41,7 +41,7 @@ spograph<-function(){
   pids$ProjectDelivered <- as.Date(pids$ProjectDelivered, format = "%m/%d/%Y")
   
   ##filter out the cancelled
-  pids2<-pids[which(pids$ProjectStatusName!="Cancelled"),]
+  pids2<-pids[which(pids$ProjectStatusName!="Cancelled"),]  ##this is a jumping point for creating new data frames
   
   ##filter on Shared Networking
   pids5<-pids2[which(pids2$EngineeringGroup=="Shared Networking"),]
@@ -59,17 +59,18 @@ spograph<-function(){
   ##filter out only the BAsebuild PIDs
   ##basebuildpids<-pids7[grepl("^Fabric \\| B",pids7$ProjectTitle),]
   
-  ##extract list of O365 PIDs
+  ##extract list of active SPO PRD PIDs
   pids9<-pids2[which(pids2$DeploymentClass=="New Deployment"),]
   pids11<-pids9[which(pids9$EngineeringGroup %in% EG),]
-  pids12<-pids11[which(pids11$ProjectDelivered > "2017-01-01"),]
+  pids12<-pids11[which(is.na(pids11$ProjectDelivered)),]
+  pids14<-pids12[which(pids12$ProjectCategory=="PRD"),]
   
   ##isolate the MOR tags for each O365 PIDs
   pids13<-pids12[which(!is.na(pids12$Tags)),]
   pids15<-pids13[grepl("MORPID",pids13$Tags),]
   pids17<-mutate(pids15, assocmorpid = "")
   pids17$assocmorpid<-stri_sub(unlist(stri_match_first_regex(pids17$Tags, "MORPID=[0-9]{6}")),from=8)
-  pids18<-pids17[which(!is.na(pids17$assocmorpid)),]
+  pids19<-pids17[which(!is.na(pids17$assocmorpid)),]
   
   
   ##merge O365 PIDs with morpids
@@ -86,7 +87,7 @@ spograph<-function(){
   ,w.morActualDockMax
   ,w.morProjectDelivered
   
-  FROM pids18 p
+  FROM pids19 p
   LEFT JOIN morpids w
   ON p.assocmorpid = w.morDeliveryNumber"
   
@@ -119,13 +120,12 @@ spograph<-function(){
   
   
   ##generate datasheets by Month_Delivered
-  ##write to file - including ITAR
-  write.csv(mergedpids7,file = "C:/Users/andrewll/OneDrive - Microsoft/WindowsPowerShell/Data/out/MORbuildmetrics_by_MonthDelivered.csv")
-  write.csv(mergedpids5,file = "C:/Users/andrewll/OneDrive - Microsoft/WindowsPowerShell/Data/out/MORbuildmetrics_by_MonthDelivered_rawdata.csv")
+  write.csv(mergedpids7,file = "C:/Users/andrewll/OneDrive - Microsoft/WindowsPowerShell/Data/out/spograph_by_MonthDelivered_summarized.csv")
+  write.csv(mergedpids5,file = "C:/Users/andrewll/OneDrive - Microsoft/WindowsPowerShell/Data/out/spograph_rawdata.csv")
   
   ##summarize data by Month_Created
   mergedpids9 <- mergedpids5 %>% 
-    group_by(Month_Delivered) %>%
+    group_by(Month_Created) %>%
     summarize(PRDCreation_to_morCreation_mean = mean(PRDCreation_to_morCreation), 
               PRDCreation_to_morCreation_95th = quantile(PRDCreation_to_morCreation,.95, na.rm = TRUE), 
               morRTEG_to_PRDdock_mean = mean(morRTEG_to_PRDdock, na.rm = TRUE),
@@ -136,8 +136,12 @@ spograph<-function(){
   
   
   ##generate datasheets by Month_Created
-  ##write to file - including ITAR
-  write.csv(mergedpids7,file = "C:/Users/andrewll/OneDrive - Microsoft/WindowsPowerShell/Data/out/MORbuildmetrics.csv")
+  write.csv(mergedpids9,file = "C:/Users/andrewll/OneDrive - Microsoft/WindowsPowerShell/Data/out/spograph_by_MonthCreated_summarized.csv")
+  
+  ##create data frame of Network PIDs
+  networkpids<-pids2[which(pids2$ProjectCategory=="Network"),]
+  networkpids3<-networkpids[which(networkpids$DeploymentClass=="New Deployment"),]
+  networkpids5<-networkpids3[which(is.na(networkpids3$ProjectDelivered)),]
   
   
   
