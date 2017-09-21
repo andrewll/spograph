@@ -20,6 +20,7 @@ spograph<-function(){
   
   #setup EG variable for lookup
   EG<-c("O365 SharePoint")
+  egpropertygroup<-c("BOSG - SPO-S", "FAST Search")
   
   ##set the path to DeploymentPerformance file
   path <- paste0("C:/Users/andrewll/OneDrive - Microsoft/WindowsPowerShell/Data/in")
@@ -52,7 +53,7 @@ spograph<-function(){
   ##filter out only the MOR PIDs
   morpids<-pids7[grepl("^Fabric \\| M",pids7$ProjectTitle),]
   
-  ##change date field names for morpids
+  ##change date field names for morpids, removing periods
   mornames <- gsub("^","mor",names(morpids))
   colnames(morpids) <- c(mornames)
   
@@ -62,15 +63,15 @@ spograph<-function(){
   ##extract list of active SPO PRD PIDs
   pids9<-pids2[which(pids2$DeploymentClass=="New Deployment"),]
   pids11<-pids9[which(pids9$EngineeringGroup %in% EG),]
-  pids12<-pids11[which(is.na(pids11$ProjectDelivered)),]
-  pids14<-pids12[which(pids12$ProjectCategory=="PRD"),]
+  pids13<-pids11[which(is.na(pids11$ProjectDelivered)),]
+  pids15<-pids13[which(pids13$ProjectCategory=="PRD"),]
   
   ##isolate the MOR tags for each O365 PIDs
-  pids13<-pids12[which(!is.na(pids12$Tags)),]
-  pids15<-pids13[grepl("MORPID",pids13$Tags),]
-  pids17<-mutate(pids15, assocmorpid = "")
-  pids17$assocmorpid<-stri_sub(unlist(stri_match_first_regex(pids17$Tags, "MORPID=[0-9]{6}")),from=8)
-  pids19<-pids17[which(!is.na(pids17$assocmorpid)),]
+  pids16<-pids15[which(!is.na(pids15$Tags)),]
+  pids18<-pids16[grepl("MORPID",pids16$Tags),]
+  pids20<-mutate(pids18, assocmorpid = "")
+  pids20$assocmorpid<-stri_sub(unlist(stri_match_first_regex(pids20$Tags, "MORPID=[0-9]{6}")),from=8)
+  pids22<-pids20[which(!is.na(pids20$assocmorpid)),]
   
   
   ##merge O365 PIDs with morpids
@@ -87,7 +88,7 @@ spograph<-function(){
   ,w.morActualDockMax
   ,w.morProjectDelivered
   
-  FROM pids19 p
+  FROM pids22 p
   LEFT JOIN morpids w
   ON p.assocmorpid = w.morDeliveryNumber"
   
@@ -98,50 +99,51 @@ spograph<-function(){
   
   
   ##calculate metrics
-  mergedpids5<-mutate(mergedpids3
-                      , Month_Delivered = format(ProjectDelivered, "%m-%y")
-                      , PRDCreation_to_morCreation = morCreationDate - CreationDate
-                      , morRTEG_to_PRDdock = morProjectDelivered-ActualDockMax
-                      , morDock_to_PRDdock = morActualDockMax -ActualDockMax
-                      , PIDCount = 1
-                      , Month_Created = format(CreationDate, "%m-%y"))
+  ##mergedpids5<-mutate(mergedpids3
+  ##                    , Month_Delivered = format(ProjectDelivered, "%m-%y")
+  ##                    , PRDCreation_to_morCreation = morCreationDate - CreationDate
+  ##                    , morRTEG_to_PRDdock = morProjectDelivered-ActualDockMax
+  ##                    , morDock_to_PRDdock = morActualDockMax -ActualDockMax
+  ##                    , PIDCount = 1
+  ##                    , Month_Created = format(CreationDate, "%m-%y"))
   
   
   ##summarize data by Month_Delivered
-  mergedpids7 <- mergedpids5 %>% 
-    group_by(Month_Delivered) %>%
-    summarize(PRDCreation_to_morCreation_mean = mean(PRDCreation_to_morCreation), 
-              PRDCreation_to_morCreation_95th = quantile(PRDCreation_to_morCreation,.95, na.rm = TRUE), 
-              morRTEG_to_PRDdock_mean = mean(morRTEG_to_PRDdock, na.rm = TRUE),
-              morRTEG_to_PRDdock_95th = quantile(morRTEG_to_PRDdock, .95, na.rm = TRUE),
-              morDock_to_PRDdock_mean = mean(morDock_to_PRDdock, na.rm = TRUE),
-              morDock_to_PRDdock_95th = quantile(morDock_to_PRDdock, .95, na.rm = TRUE),
-              PIDCount = sum(PIDCount))
+  ##mergedpids7 <- mergedpids5 %>% 
+  ##  group_by(Month_Delivered) %>%
+  ##  summarize(PRDCreation_to_morCreation_mean = mean(PRDCreation_to_morCreation), 
+  ##            PRDCreation_to_morCreation_95th = quantile(PRDCreation_to_morCreation,.95, na.rm = TRUE), 
+  ##            morRTEG_to_PRDdock_mean = mean(morRTEG_to_PRDdock, na.rm = TRUE),
+  ##            morRTEG_to_PRDdock_95th = quantile(morRTEG_to_PRDdock, .95, na.rm = TRUE),
+  ##            morDock_to_PRDdock_mean = mean(morDock_to_PRDdock, na.rm = TRUE),
+  ##            morDock_to_PRDdock_95th = quantile(morDock_to_PRDdock, .95, na.rm = TRUE),
+  ##            PIDCount = sum(PIDCount))
   
   
   ##generate datasheets by Month_Delivered
-  write.csv(mergedpids7,file = "C:/Users/andrewll/OneDrive - Microsoft/WindowsPowerShell/Data/out/spograph_by_MonthDelivered_summarized.csv")
-  write.csv(mergedpids5,file = "C:/Users/andrewll/OneDrive - Microsoft/WindowsPowerShell/Data/out/spograph_rawdata.csv")
+  ##write.csv(mergedpids7,file = "C:/Users/andrewll/OneDrive - Microsoft/WindowsPowerShell/Data/out/spograph_by_MonthDelivered_summarized.csv")
+  ##write.csv(mergedpids5,file = "C:/Users/andrewll/OneDrive - Microsoft/WindowsPowerShell/Data/out/spograph_rawdata.csv")
   
   ##summarize data by Month_Created
-  mergedpids9 <- mergedpids5 %>% 
-    group_by(Month_Created) %>%
-    summarize(PRDCreation_to_morCreation_mean = mean(PRDCreation_to_morCreation), 
-              PRDCreation_to_morCreation_95th = quantile(PRDCreation_to_morCreation,.95, na.rm = TRUE), 
-              morRTEG_to_PRDdock_mean = mean(morRTEG_to_PRDdock, na.rm = TRUE),
-              morRTEG_to_PRDdock_95th = quantile(morRTEG_to_PRDdock, .95, na.rm = TRUE),
-              morDock_to_PRDdock_mean = mean(morDock_to_PRDdock, na.rm = TRUE),
-              morDock_to_PRDdock_95th = quantile(morDock_to_PRDdock, .95, na.rm = TRUE),
-              PIDCount = sum(PIDCount))
+  ##mergedpids9 <- mergedpids5 %>% 
+  ##  group_by(Month_Created) %>%
+  ##  summarize(PRDCreation_to_morCreation_mean = mean(PRDCreation_to_morCreation), 
+  ##            PRDCreation_to_morCreation_95th = quantile(PRDCreation_to_morCreation,.95, na.rm = TRUE), 
+  ##            morRTEG_to_PRDdock_mean = mean(morRTEG_to_PRDdock, na.rm = TRUE),
+  ##            morRTEG_to_PRDdock_95th = quantile(morRTEG_to_PRDdock, .95, na.rm = TRUE),
+  ##            morDock_to_PRDdock_mean = mean(morDock_to_PRDdock, na.rm = TRUE),
+  ##            morDock_to_PRDdock_95th = quantile(morDock_to_PRDdock, .95, na.rm = TRUE),
+  ##            PIDCount = sum(PIDCount))
   
   
   ##generate datasheets by Month_Created
-  write.csv(mergedpids9,file = "C:/Users/andrewll/OneDrive - Microsoft/WindowsPowerShell/Data/out/spograph_by_MonthCreated_summarized.csv")
+  ##write.csv(mergedpids9,file = "C:/Users/andrewll/OneDrive - Microsoft/WindowsPowerShell/Data/out/spograph_by_MonthCreated_summarized.csv")
   
   ##create data frame of Network PIDs
   networkpids<-pids2[which(pids2$ProjectCategory=="Network"),]
   networkpids3<-networkpids[which(networkpids$DeploymentClass=="New Deployment"),]
   networkpids5<-networkpids3[which(is.na(networkpids3$ProjectDelivered)),]
+  networkpids7<-networkpids5[which(networkpids5$PropertyGroup %in% egpropertygroup),]
   
   
   
