@@ -20,7 +20,7 @@ spograph<-function(){
   
   #setup EG variable for lookup
   EG<-c("O365 SharePoint")
-  egpropertygroup<-c("BOSG - SPO-S", "FAST Search")
+  egpropertygroup<-c("BOSG - SPO-S", "FAST Search", "BOSG - Federal SharePoint")
   
   ##set the path to DeploymentPerformance file
   path <- paste0("C:/Users/andrewll/OneDrive - Microsoft/WindowsPowerShell/Data/in")
@@ -40,7 +40,9 @@ spograph<-function(){
   pids$CreationDate <- as.Date(pids$CreationDate, format = "%m/%d/%Y")
   pids$ActualDockMax <- as.Date(pids$ActualDockMax, format = "%m/%d/%Y")
   pids$ProjectDelivered <- as.Date(pids$ProjectDelivered, format = "%m/%d/%Y")
-  
+  pids$Tags<-stri_replace_all_fixed(pids$Tags," ","")  ##remove all whitespace
+  pids$Tags<-stri_trans_toupper(pids$Tags)             ##change strings to upper case to simplify grep later
+   
   ##filter out the cancelled
   pids2<-pids[which(pids$ProjectStatusName!="Cancelled"),]  ##this is a jumping point for creating new data frames
   
@@ -144,6 +146,8 @@ spograph<-function(){
   networkpids3<-networkpids[which(networkpids$DeploymentClass=="New Deployment"),]
   networkpids5<-networkpids3[which(is.na(networkpids3$ProjectDelivered)),]
   networkpids7<-networkpids5[which(networkpids5$PropertyGroup %in% egpropertygroup),]
+  
+  
   
   
   
