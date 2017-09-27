@@ -59,22 +59,19 @@ spograph<-function(){
   mornames <- gsub("^","mor",names(morpids))
   colnames(morpids) <- c(mornames)
   
-  ##filter out only the BAsebuild PIDs
-  ##basebuildpids<-pids7[grepl("^Fabric \\| B",pids7$ProjectTitle),]
-  
   ##extract list of active SPO PRD PIDs
   pids9<-pids2[which(pids2$DeploymentClass=="New Deployment"),]
   pids11<-pids9[which(pids9$EngineeringGroup %in% EG),]
   pids13<-pids11[which(is.na(pids11$ProjectDelivered)),]
   pids15<-pids13[which(pids13$ProjectCategory=="PRD"),]
   
-  ##isolate the MOR tags for each O365 PIDs
+  ##isolate the MOR and Network tags for each O365 PID
   pids16<-pids15[which(!is.na(pids15$Tags)),]
   pids18<-pids16[grepl("MORPID",pids16$Tags),]
-  pids20<-mutate(pids18, assocmorpid = "")
-  pids20$assocmorpid<-stri_sub(unlist(stri_match_first_regex(pids20$Tags, "MORPID=[0-9]{6}")),from=8)
+  pids20<-mutate(pids18, assocmorpid = "", assocnetworkpid = "", assocazurepid = "")
+  pids20$assocmorpid<-stri_sub(unlist(stri_match_first_regex(pids20$Tags, "MORPID=[0-9]{6}")),from=8)  ##MOR PID tag
+  pids20$assocnetworkpid<-stri_sub(unlist(stri_match_first_regex(pids20$Tags, ",NWPID=[0-9]{6}")),from=8) ##Network PID tag
   pids22<-pids20[which(!is.na(pids20$assocmorpid)),]
-  
   
   ##merge O365 PIDs with morpids
   SQLQuery1 <- "SELECT p.DeliveryNumber
@@ -82,13 +79,18 @@ spograph<-function(){
   ,p.CreationDate
   ,p.RequestedDelivery
   ,p.CommittedDelivery
+  ,p.EstimatedRTEGDate
   ,p.ProjectDelivered
   ,p.ActualDockMax
   ,p.assocmorpid
+  ,p.assocnetworkpid
   ,w.morDeliveryNumber
   ,w.morCreationDate
   ,w.morActualDockMax
   ,w.morProjectDelivered
+  ,w.morCommittedDelivery
+  ,w.morEstimatedRTEGDate
+  ,w.morRequestedDelivery
   
   FROM pids22 p
   LEFT JOIN morpids w
@@ -100,44 +102,6 @@ spograph<-function(){
   mergedpids3<-mergedpids[which(!is.na(mergedpids$morDeliveryNumber)),]
   
   
-  ##calculate metrics
-  ##mergedpids5<-mutate(mergedpids3
-  ##                    , Month_Delivered = format(ProjectDelivered, "%m-%y")
-  ##                    , PRDCreation_to_morCreation = morCreationDate - CreationDate
-  ##                    , morRTEG_to_PRDdock = morProjectDelivered-ActualDockMax
-  ##                    , morDock_to_PRDdock = morActualDockMax -ActualDockMax
-  ##                    , PIDCount = 1
-  ##                    , Month_Created = format(CreationDate, "%m-%y"))
-  
-  
-  ##summarize data by Month_Delivered
-  ##mergedpids7 <- mergedpids5 %>% 
-  ##  group_by(Month_Delivered) %>%
-  ##  summarize(PRDCreation_to_morCreation_mean = mean(PRDCreation_to_morCreation), 
-  ##            PRDCreation_to_morCreation_95th = quantile(PRDCreation_to_morCreation,.95, na.rm = TRUE), 
-  ##            morRTEG_to_PRDdock_mean = mean(morRTEG_to_PRDdock, na.rm = TRUE),
-  ##            morRTEG_to_PRDdock_95th = quantile(morRTEG_to_PRDdock, .95, na.rm = TRUE),
-  ##            morDock_to_PRDdock_mean = mean(morDock_to_PRDdock, na.rm = TRUE),
-  ##            morDock_to_PRDdock_95th = quantile(morDock_to_PRDdock, .95, na.rm = TRUE),
-  ##            PIDCount = sum(PIDCount))
-  
-  
-  ##generate datasheets by Month_Delivered
-  ##write.csv(mergedpids7,file = "C:/Users/andrewll/OneDrive - Microsoft/WindowsPowerShell/Data/out/spograph_by_MonthDelivered_summarized.csv")
-  ##write.csv(mergedpids5,file = "C:/Users/andrewll/OneDrive - Microsoft/WindowsPowerShell/Data/out/spograph_rawdata.csv")
-  
-  ##summarize data by Month_Created
-  ##mergedpids9 <- mergedpids5 %>% 
-  ##  group_by(Month_Created) %>%
-  ##  summarize(PRDCreation_to_morCreation_mean = mean(PRDCreation_to_morCreation), 
-  ##            PRDCreation_to_morCreation_95th = quantile(PRDCreation_to_morCreation,.95, na.rm = TRUE), 
-  ##            morRTEG_to_PRDdock_mean = mean(morRTEG_to_PRDdock, na.rm = TRUE),
-  ##            morRTEG_to_PRDdock_95th = quantile(morRTEG_to_PRDdock, .95, na.rm = TRUE),
-  ##            morDock_to_PRDdock_mean = mean(morDock_to_PRDdock, na.rm = TRUE),
-  ##            morDock_to_PRDdock_95th = quantile(morDock_to_PRDdock, .95, na.rm = TRUE),
-  ##            PIDCount = sum(PIDCount))
-  
-  
   ##generate datasheets by Month_Created
   ##write.csv(mergedpids9,file = "C:/Users/andrewll/OneDrive - Microsoft/WindowsPowerShell/Data/out/spograph_by_MonthCreated_summarized.csv")
   
@@ -147,8 +111,39 @@ spograph<-function(){
   networkpids5<-networkpids3[which(is.na(networkpids3$ProjectDelivered)),]
   networkpids7<-networkpids5[which(networkpids5$PropertyGroup %in% egpropertygroup),]
   
+  ##change date field names for network pids, removing periods
+  netnames <- gsub("^","net",names(networkpids7))
+  colnames(networkpids7) <- c(netnames)
   
+  ##merge O365 PIDs with netpids
+  SQLQuery1 <- "SELECT d.DeliveryNumber
+  ,d.EngineeringGroup
+  ,d.CreationDate
+  ,d.RequestedDelivery
+  ,d.CommittedDelivery
+  ,d.EstimatedRTEGDate
+  ,d.ProjectDelivered
+  ,d.ActualDockMax
+  ,d.assocmorpid
+  ,d.assocnetworkpid
+  ,d.morDeliveryNumber
+  ,d.morCreationDate
+  ,d.morActualDockMax
+  ,d.morProjectDelivered
+  ,d.morRequestedDelivery
+  ,d.morCommittedDelivery
+  ,e.netDeliveryNumber
+  ,e.netEngineeringGroup
+  ,e.netCreationDate
+  ,e.netActualDockMax
+  ,e.netProjectDelivered
+  ,e.netCommittedDelivery
+  ,e.netEstimatedRTEGDate
+
+  FROM mergedpids3 d
+  LEFT JOIN networkpids7 e
+  ON d.assocnetworkpid = e.netDeliveryNumber"
   
-  
+  mergedpids5 <- sqldf(SQLQuery1)
   
 }
