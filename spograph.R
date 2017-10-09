@@ -21,6 +21,7 @@ spograph<-function(){
   #setup EG variable for lookup
   EG<-c("O365 SharePoint")
   egpropertygroup<-c("BOSG - SPO-S", "FAST Search", "BOSG - Federal SharePoint")
+  azureclusternames<-c("PrdApp01","PrdStr01")
   
   ##set the path to DeploymentPerformance file
   path <- paste0("C:/Users/andrewll/OneDrive - Microsoft/WindowsPowerShell/Data/in")
@@ -76,6 +77,7 @@ spograph<-function(){
   ##merge O365 PIDs with morpids
   SQLQuery1 <- "SELECT p.DeliveryNumber
   ,p.EngineeringGroup
+  ,p.DataCenter
   ,p.CreationDate
   ,p.RequestedDelivery
   ,p.CommittedDelivery
@@ -118,6 +120,7 @@ spograph<-function(){
   ##merge O365 PIDs with netpids
   SQLQuery1 <- "SELECT d.DeliveryNumber
   ,d.EngineeringGroup
+  ,d.DataCenter
   ,d.CreationDate
   ,d.RequestedDelivery
   ,d.CommittedDelivery
@@ -145,5 +148,108 @@ spograph<-function(){
   ON d.assocnetworkpid = e.netDeliveryNumber"
   
   mergedpids5 <- sqldf(SQLQuery1)
+  
+  #dataframe for Azure Prod01 and Stor01 PIDs
+  azurepids1<-pids2[which(pids2$EngineeringGroup=="Azure"),]
+  ##azurepids3<-azurepids1[grepl(paste(azureclusternames,collapse = "|"),azurepids1$ClusterName),]  not sure how to use this data frame
+  azurepids5<-azurepids1[grepl("PrdApp01",azurepids1$ClusterName),]
+  azurepids7<-azurepids1[grepl("PrdStr01",azurepids1$ClusterName),]
+  
+  #modify column names for Azure App01 data frame
+  azureapp01names <- gsub("^","azureapp01",names(azurepids5))
+  colnames(azurepids5) <- c(azureapp01names)
+  azurestr01names <- gsub("^","azurestr01",names(azurepids7))
+  colnames(azurepids7) <- c(azurestr01names)
+  
+  
+  #merge Azure  App01 PIDs into main data frame
+  SQLQuery1 <- "SELECT d.DeliveryNumber
+  ,d.EngineeringGroup
+  ,d.CreationDate
+  ,d.RequestedDelivery
+  ,d.CommittedDelivery
+  ,d.EstimatedRTEGDate
+  ,d.ProjectDelivered
+  ,d.ActualDockMax
+  ,d.assocmorpid
+  ,d.assocnetworkpid
+  ,d.morDeliveryNumber
+  ,d.morCreationDate
+  ,d.morActualDockMax
+  ,d.morProjectDelivered
+  ,d.morRequestedDelivery
+  ,d.morCommittedDelivery
+  ,d.netDeliveryNumber
+  ,d.netEngineeringGroup
+  ,d.netCreationDate
+  ,d.netActualDockMax
+  ,d.netProjectDelivered
+  ,d.netCommittedDelivery
+  ,d.netEstimatedRTEGDate
+  ,d.DataCenter
+  ,e.azureapp01DataCenter
+  ,e.azureapp01DeliveryNumber
+  ,e.azureapp01ProjectDelivered
+  ,e.azureapp01CommittedDelivery
+
+  FROM mergedpids5 d
+  LEFT JOIN azurepids5 e
+  ON d.DataCenter = e.azureapp01DataCenter"
+  
+  mergedpids7 <- sqldf(SQLQuery1)
+  
+  
+  #merge Azure  Str01 PIDs into main data frame
+  SQLQuery1 <- "SELECT d.DeliveryNumber
+  ,d.EngineeringGroup
+  ,d.CreationDate
+  ,d.RequestedDelivery
+  ,d.CommittedDelivery
+  ,d.EstimatedRTEGDate
+  ,d.ProjectDelivered
+  ,d.ActualDockMax
+  ,d.assocmorpid
+  ,d.assocnetworkpid
+  ,d.morDeliveryNumber
+  ,d.morCreationDate
+  ,d.morActualDockMax
+  ,d.morProjectDelivered
+  ,d.morRequestedDelivery
+  ,d.morCommittedDelivery
+  ,d.netDeliveryNumber
+  ,d.netEngineeringGroup
+  ,d.netCreationDate
+  ,d.netActualDockMax
+  ,d.netProjectDelivered
+  ,d.netCommittedDelivery
+  ,d.netEstimatedRTEGDate
+  ,d.azureapp01DeliveryNumber
+  ,d.azureapp01ProjectDelivered
+  ,d.azureapp01CommittedDelivery
+  ,d.DataCenter
+  ,d.azureapp01DataCenter
+  ,e.azurestr01DataCenter
+  ,e.azurestr01DeliveryNumber
+  ,e.azurestr01ProjectDelivered
+  ,e.azurestr01CommittedDelivery
+  
+  FROM mergedpids7 d
+  LEFT JOIN azurepids7 e
+  ON d.DataCenter = e.azurestr01DataCenter"
+  
+  mergedpids9 <- sqldf(SQLQuery1)
+  
+  
+  
+  #link PRD PIDs by zone pair
+  
+  #generate graph
+  
+  
+  
+  
+  
+  
+  
   
 }
