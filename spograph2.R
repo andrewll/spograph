@@ -172,10 +172,79 @@ spograph2<-function(){
   ##create main dataframe with PRD-Network, Network-MOR, PRD-MOR, PRD-PRD(matched on DID, on pair name) links
   mygraphdata7<-rbind(mygraphdata5,prdpids27)
   
+  ##PRD-to-PRD linking, case of no match on DID or PairName
+  ##look at data on prdpids23
   
+  ##Create dataframes for Azure App01 and Str01
+  azurepids1<-pids2[which(pids2$EngineeringGroup=="Azure"),]
+  azurepids2<-azurepids1[which(azurepids1$ProjectCategory=="PRD"),]
+  azurepids3<-azurepids2[which(azurepids2$DeploymentClass=="New Deployment"),]
+  ##azurepids3<-azurepids1[grepl(paste(azureclusternames,collapse = "|"),azurepids1$ClusterName),]  not sure how to use this data frame
+  azurepids5<-azurepids3[!grepl("PrdApp01-02",azurepids3$ClusterName),]  ##remove any row with -02 in the clustername
+  azurepids6<-azurepids5[!grepl("PrdApp01-03",azurepids5$ClusterName),]  ##remove any row with -03 in the clustername
+  azurepids7<-azurepids6[!grepl("PrdApp01-04",azurepids6$ClusterName),]  ##remove any row with -04 in the clustername
+  azurepids8<-azurepids7[!grepl("PrdApp01-05",azurepids7$ClusterName),]  ##remove any row with -05 in the clustername
+  azurepids9<-azurepids8[grepl("PrdApp01",azurepids8$ClusterName),]
+  azurepids10<-azurepids3[grepl("PrdStr01",azurepids3$ClusterName),]
+  
+  ##change column names for app01 and str01 dataframe
+  azurepids9names <- gsub("^","assoc",names(azurepids9))
+  colnames(azurepids9) <- c(azurepids9names)
+  azurepids10names <- gsub("^","assoc",names(azurepids10))
+  colnames(azurepids10) <- c(azurepids10names)
+  
+  ##merge PRD dataframe with Str01 dataframe, match on DC name
+  SQLQuery1 <- "SELECT d.DeliveryNumber
+  ,d.ProjectTitle
+  ,e.assocClusterName
+  ,e.assocDeliveryNumber
+  ,d.DataCenter
+  ,e.assocDataCenter
+
+  FROM pids15 d
+  LEFT JOIN azurepids10 e
+  ON d.DataCenter = e.assocDataCenter"
+  
+  prdandstr01_data1 <- sqldf(SQLQuery1)
+  
+  ##cleanup of str01 dataframe
+  prdandstr01_data3 <- subset(prdandstr01_data1, select = c("DeliveryNumber","assocDeliveryNumber"))
+  prdandstr01_data5 <- prdandstr01_data3[which(!is.na(prdandstr01_data3$assocDeliveryNumber)),]  #remove rows with NA
+  prdandstr01_data5$DeliveryNumber<-as.character(prdandstr01_data5$DeliveryNumber)  ##format correctly before merging
+  prdandstr01_data5$assocDeliveryNumber<-as.character(prdandstr01_data5$assocDeliveryNumber)  ##format correctly before merging
+  
+  ##create main dataframe with PRD-Network, Network-MOR, PRD-MOR, PRD-PRD(matched on DID, on pair name), PRD-STRO1 links
+  mygraphdata9<-rbind(mygraphdata7,prdandstr01_data5)
+  
+  ##merge PRD dataframe with App01 dataframe, match on DC name
+  SQLQuery1 <- "SELECT d.DeliveryNumber
+  ,d.ProjectTitle
+  ,e.assocClusterName
+  ,e.assocDeliveryNumber
+  ,d.DataCenter
+  ,e.assocDataCenter
+  
+  FROM pids15 d
+  LEFT JOIN azurepids9 e
+  ON d.DataCenter = e.assocDataCenter"
+  
+  prdandapp01_data1 <- sqldf(SQLQuery1)
+  
+  ##cleanup of app01 dataframe
+  prdandapp01_data3 <- subset(prdandapp01_data1, select = c("DeliveryNumber","assocDeliveryNumber"))
+  prdandapp01_data5 <- prdandapp01_data3[which(!is.na(prdandapp01_data3$assocDeliveryNumber)),]  #remove rows with NA
+  prdandapp01_data5$DeliveryNumber<-as.character(prdandapp01_data5$DeliveryNumber)  ##format correctly before merging
+  prdandapp01_data5$assocDeliveryNumber<-as.character(prdandapp01_data5$assocDeliveryNumber)  ##format correctly before merging
+  
+  ##create main dataframe with PRD->Network, Network->MOR, PRD->MOR, PRD->PRD(matched on DID, on pair name), PRD->STRO1, PRD->app01 links
+  mygraphdata11<-rbind(mygraphdata9,prdandapp01_data5)
+  
+  ##final cleanup of mygraphdata
+  mygraphdata13<-mygraphdata11[which(!is.na(mygraphdata11$assocDeliveryNumber)),]
+  mygraphdata15<-mygraphdata13[which(!is.na(mygraphdata13$DeliveryNumber)),]
   
   ##plot it
-  myfirstnetwork<-graph.data.frame(mygraphdata7,directed = FALSE)
+  myfirstnetwork<-graph.data.frame(mygraphdata15,directed = FALSE)
   plot(myfirstnetwork)
   
 }
