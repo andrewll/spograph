@@ -14,6 +14,7 @@ spograph<-function(){
   library(reshape2)
   library(lubridate)
   library(stringi)
+  library(igraph)
   
   # basic set up clear all existing variables 
   rm(list = ls(all=T))
@@ -78,6 +79,8 @@ spograph<-function(){
   SQLQuery1 <- "SELECT p.DeliveryNumber
   ,p.EngineeringGroup
   ,p.DataCenter
+  ,p.DemandID
+  ,p.ProjectTitle
   ,p.CreationDate
   ,p.RequestedDelivery
   ,p.CommittedDelivery
@@ -121,6 +124,8 @@ spograph<-function(){
   SQLQuery1 <- "SELECT d.DeliveryNumber
   ,d.EngineeringGroup
   ,d.DataCenter
+  ,d.DemandID
+  ,d.ProjectTitle
   ,d.CreationDate
   ,d.RequestedDelivery
   ,d.CommittedDelivery
@@ -151,99 +156,75 @@ spograph<-function(){
   
   #dataframe for Azure Prod01 and Stor01 PIDs
   azurepids1<-pids2[which(pids2$EngineeringGroup=="Azure"),]
+  azurepids2<-azurepids1[which(azurepids1$ProjectCategory=="PRD"),]
+  azurepids3<-azurepids2[which(azurepids2$DeploymentClass=="New Deployment"),]
   ##azurepids3<-azurepids1[grepl(paste(azureclusternames,collapse = "|"),azurepids1$ClusterName),]  not sure how to use this data frame
-  azurepids5<-azurepids1[grepl("PrdApp01",azurepids1$ClusterName),]
-  azurepids7<-azurepids1[grepl("PrdStr01",azurepids1$ClusterName),]
+  azurepids5<-azurepids3[!grepl("PrdApp01-02",azurepids3$ClusterName),]  ##remove any row with -02 in the clustername
+  azurepids6<-azurepids5[!grepl("PrdApp01-03",azurepids5$ClusterName),]  ##remove any row with -03 in the clustername
+  azurepids7<-azurepids6[!grepl("PrdApp01-04",azurepids6$ClusterName),]  ##remove any row with -04 in the clustername
+  azurepids8<-azurepids7[!grepl("PrdApp01-05",azurepids7$ClusterName),]  ##remove any row with -05 in the clustername
+  azurepids9<-azurepids8[grepl("PrdApp01",azurepids8$ClusterName),]
+  azurepids10<-azurepids3[grepl("PrdStr01",azurepids3$ClusterName),]
   
   #modify column names for Azure App01 data frame
-  azureapp01names <- gsub("^","azureapp01",names(azurepids5))
-  colnames(azurepids5) <- c(azureapp01names)
-  azurestr01names <- gsub("^","azurestr01",names(azurepids7))
-  colnames(azurepids7) <- c(azurestr01names)
-  
+  azureapp01names <- gsub("^","azureapp01",names(azurepids9))
+  colnames(azurepids9) <- c(azureapp01names)
+  azurestr01names <- gsub("^","azurestr01",names(azurepids10))
+  colnames(azurepids10) <- c(azurestr01names)
   
   #merge Azure  App01 PIDs into main data frame
   SQLQuery1 <- "SELECT d.DeliveryNumber
-  ,d.EngineeringGroup
-  ,d.CreationDate
-  ,d.RequestedDelivery
-  ,d.CommittedDelivery
-  ,d.EstimatedRTEGDate
-  ,d.ProjectDelivered
-  ,d.ActualDockMax
+  ,d.ProjectTitle
+  ,d.DemandID
+  ,e.azurestr01ClusterName
+  ,e.azurestr01DeliveryNumber
   ,d.assocmorpid
   ,d.assocnetworkpid
   ,d.morDeliveryNumber
-  ,d.morCreationDate
-  ,d.morActualDockMax
-  ,d.morProjectDelivered
-  ,d.morRequestedDelivery
-  ,d.morCommittedDelivery
   ,d.netDeliveryNumber
-  ,d.netEngineeringGroup
-  ,d.netCreationDate
-  ,d.netActualDockMax
-  ,d.netProjectDelivered
-  ,d.netCommittedDelivery
-  ,d.netEstimatedRTEGDate
   ,d.DataCenter
-  ,e.azureapp01DataCenter
-  ,e.azureapp01DeliveryNumber
-  ,e.azureapp01ProjectDelivered
-  ,e.azureapp01CommittedDelivery
+  ,e.azurestr01DataCenter
+
 
   FROM mergedpids5 d
-  LEFT JOIN azurepids5 e
-  ON d.DataCenter = e.azureapp01DataCenter"
+  LEFT JOIN azurepids10 e
+  ON d.DataCenter = e.azurestr01DataCenter"
   
   mergedpids7 <- sqldf(SQLQuery1)
   
   
   #merge Azure  Str01 PIDs into main data frame
   SQLQuery1 <- "SELECT d.DeliveryNumber
-  ,d.EngineeringGroup
-  ,d.CreationDate
-  ,d.RequestedDelivery
-  ,d.CommittedDelivery
-  ,d.EstimatedRTEGDate
-  ,d.ProjectDelivered
-  ,d.ActualDockMax
-  ,d.assocmorpid
-  ,d.assocnetworkpid
-  ,d.morDeliveryNumber
-  ,d.morCreationDate
-  ,d.morActualDockMax
-  ,d.morProjectDelivered
-  ,d.morRequestedDelivery
-  ,d.morCommittedDelivery
-  ,d.netDeliveryNumber
-  ,d.netEngineeringGroup
-  ,d.netCreationDate
-  ,d.netActualDockMax
-  ,d.netProjectDelivered
-  ,d.netCommittedDelivery
-  ,d.netEstimatedRTEGDate
-  ,d.azureapp01DeliveryNumber
-  ,d.azureapp01ProjectDelivered
-  ,d.azureapp01CommittedDelivery
   ,d.DataCenter
-  ,d.azureapp01DataCenter
-  ,e.azurestr01DataCenter
-  ,e.azurestr01DeliveryNumber
-  ,e.azurestr01ProjectDelivered
-  ,e.azurestr01CommittedDelivery
-  
-  FROM mergedpids7 d
-  LEFT JOIN azurepids7 e
-  ON d.DataCenter = e.azurestr01DataCenter"
+  ,e.azureapp01DataCenter
+  ,e.azureapp01DeliveryNumber
+  ,e.azureapp01ClusterName
+
+  FROM mergedpids5 d
+  LEFT JOIN azurepids9 e
+  ON d.DataCenter = e.azureapp01DataCenter"
   
   mergedpids9 <- sqldf(SQLQuery1)
   
+  ##mergedpids7 links the PRD to the MOR, Network, and Str01
+  ##mergedpids9 links the PRD to App01
   
+  ##link the PRD pairs
   
-  #link PRD PIDs by zone pair
+
   
-  #generate graph
+  #generate data frame for graph
+  ##start outer for loop 
+  ##on row, read PRD1-Net1, add to DF
+  ##on row, read Net1-MOR1, add to DF
+  ##on row, read PRD1-STR01, add to DF
+  ##on row, read PRD1-APP01, add to DF
+  ##on row, read PRD1-PRD2, add to DF
+  ##next row
+  mygraphdata<-data.frame(stringsAsFactors = default.stringsAsFactors())
+  for(i in 1:nrow(mergedpids11)){
+    
+  }
   
   
   
