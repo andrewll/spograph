@@ -20,10 +20,13 @@ spograph2<-function(){
   # basic set up clear all existing variables 
   rm(list = ls(all=T))
   
-  #setup EG variable for lookup
+  #setup variables
   EG<-c("O365 SharePoint")
   egpropertygroup<-c("BOSG - SPO-S", "FAST Search", "BOSG - Federal SharePoint")
   azureclusternames<-c("PrdApp01","PrdStr01")
+  azurestr01color<-c("#0000FF") ##blue
+  prdcolor<-c("#FFFF00") ##yellow
+  networkcolor<-c("#800000") ##maroon
   
   ##set the path to DeploymentPerformance file
   path <- paste0("C:/Users/andrewll/OneDrive - Microsoft/WindowsPowerShell/Data/in")
@@ -72,6 +75,7 @@ spograph2<-function(){
   
   ##create main dataframe with PRD-to-Network PID link
   mygraphdata<-subset(pids22,select = c("DeliveryNumber","assocnetworkpid"))
+  mygraphdata<-mutate(mygraphdata, sourcecolor = prdcolor)
   
   #fix column names
   mygraphnames <- gsub("assocnetworkpid","assocDeliveryNumber",names(mygraphdata))
@@ -79,6 +83,7 @@ spograph2<-function(){
   
   ##create dataframe with Network-to-MOR PID link, and append to main dataframe
   networkandmor<-subset(pids22,select = c("assocnetworkpid","assocmorpid"), stringsAsFactors = default.stringsAsFactors())
+  networkandmor<-mutate(networkandmor, sourcecolor=networkcolor)
   
   ##fix column names for new dataframe to match the column names in main dataframe
   networkandmornames<-gsub("assocnetworkpid","DeliveryNumber",names(networkandmor)) 
@@ -91,6 +96,7 @@ spograph2<-function(){
   
   ##create dataframe with PRD-to-MOR link
   prdandmor <- subset(pids22, select = c("DeliveryNumber","assocmorpid"))
+  prdandmor <- mutate(prdandmor, sourcecolor = prdcolor)
   
   ##fix column names for new dataframe to match the column names in main dataframe
   prdandmornames<-gsub("assocmorpid","assocDeliveryNumber",names(prdandmor)) 
@@ -135,9 +141,18 @@ spograph2<-function(){
   ##clean up prdpids, remove rows where PID is linked to itself
   prdpids11<-prdpids9[which(prdpids9$DeliveryNumber!=prdpids9$assocDeliveryNumber),]
   prdpids13<-subset(prdpids11,select = c("DeliveryNumber","assocDeliveryNumber"))
+  prdpids14<-mutate(prdpids13, sourcecolor = prdcolor)
+  
+  ##clean up prdpids, remove rows where PID is linked in reverse from the row above it
+  oddrows<-seq(1,dim(prdpids14)[1],2)
+  cleanupprdpids<-data.frame()
+  cleanupprdpids<-mutate(cleanupprdpids, DeliveryNumber="",assocDeliveryNumber = "",sourcecolor = "#FFFF00") 
+  cleanupprdpids<-data.frame(prdpids14[oddrows,])
+  prdpids14<-cleanupprdpids
+  
   
   ##create main dataframe with PRD-Network, Network-MOR, PRD-MOR, PRD-PRD(cluster pair matched on DID) links
-  mygraphdata5<-rbind(mygraphdata3,prdpids13)
+  mygraphdata5<-rbind(mygraphdata3,prdpids14)
   
   ##create another dataframe for PRD-to-PRD linking (match not on DID)
   prdpids15<-subset(prdpids13,select = c("DeliveryNumber"))
@@ -168,9 +183,17 @@ spograph2<-function(){
   ##clean up prdpids, remove rows where PID is linked to itself
   prdpids25<-prdpids23[which(prdpids23$DeliveryNumber!=prdpids23$assocDeliveryNumber),]
   prdpids27<-subset(prdpids25, select = c("DeliveryNumber","assocDeliveryNumber"))
+  prdpids29<-mutate(prdpids27, sourcecolor = prdcolor)
+  
+  ##clean up prdpids, remove rows where PID is linked in reverse from the row above it
+  oddrows<-seq(1,dim(prdpids29)[1],2)
+  cleanupprdpids2<-data.frame()
+  cleanupprdpids2<-mutate(cleanupprdpids, DeliveryNumber="",assocDeliveryNumber = "",sourcecolor = "#FFFF00") 
+  cleanupprdpids2<-data.frame(prdpids29[oddrows,])
+  prdpids29<-cleanupprdpids2
   
   ##create main dataframe with PRD-Network, Network-MOR, PRD-MOR, PRD-PRD(matched on DID, on pair name) links
-  mygraphdata7<-rbind(mygraphdata5,prdpids27)
+  mygraphdata7<-rbind(mygraphdata5,prdpids29)
   
   ##PRD-to-PRD linking, case of no match on DID or PairName
   ##look at data on prdpids23
@@ -212,9 +235,18 @@ spograph2<-function(){
   prdandstr01_data5 <- prdandstr01_data3[which(!is.na(prdandstr01_data3$assocDeliveryNumber)),]  #remove rows with NA
   prdandstr01_data5$DeliveryNumber<-as.character(prdandstr01_data5$DeliveryNumber)  ##format correctly before merging
   prdandstr01_data5$assocDeliveryNumber<-as.character(prdandstr01_data5$assocDeliveryNumber)  ##format correctly before merging
+  prdandstr01_data7<-mutate(prdandstr01_data5, sourcecolor = azurestr01color)
   
   ##create main dataframe with PRD-Network, Network-MOR, PRD-MOR, PRD-PRD(matched on DID, on pair name), PRD-STRO1 links
-  mygraphdata9<-rbind(mygraphdata7,prdandstr01_data5)
+  mygraphdata9<-rbind(mygraphdata7,prdandstr01_data7)
+  
+  ##remove the assoc column labels in the STR01 dataframe so it becomes the source in the next join
+  azurepids10names <- gsub("assoc","",names(azurepids10))
+  colnames(azurepids10) <- c(azurepids10names)
+  
+  ##create new STR01 dataframe of just the ones linked to SPO
+  ##we don't want to use the list of all STR01 because it creates orphaned nodes
+  azurepids12<-azurepids10[which(azurepids10$DeliveryNumber %in% prdandstr01_data7$assocDeliveryNumber),]
   
   ##merge PRD dataframe with App01 dataframe, match on DC name
   SQLQuery1 <- "SELECT d.DeliveryNumber
@@ -224,7 +256,7 @@ spograph2<-function(){
   ,d.DataCenter
   ,e.assocDataCenter
   
-  FROM pids15 d
+  FROM azurepids12 d
   LEFT JOIN azurepids9 e
   ON d.DataCenter = e.assocDataCenter"
   
@@ -235,13 +267,18 @@ spograph2<-function(){
   prdandapp01_data5 <- prdandapp01_data3[which(!is.na(prdandapp01_data3$assocDeliveryNumber)),]  #remove rows with NA
   prdandapp01_data5$DeliveryNumber<-as.character(prdandapp01_data5$DeliveryNumber)  ##format correctly before merging
   prdandapp01_data5$assocDeliveryNumber<-as.character(prdandapp01_data5$assocDeliveryNumber)  ##format correctly before merging
+  prdandapp01_data7 <- mutate(prdandapp01_data5, sourcecolor = azurestr01color)
   
-  ##create main dataframe with PRD->Network, Network->MOR, PRD->MOR, PRD->PRD(matched on DID, on pair name), PRD->STRO1, PRD->app01 links
-  mygraphdata11<-rbind(mygraphdata9,prdandapp01_data5)
+  ##create main dataframe with PRD->Network, Network->MOR, PRD->MOR, PRD->PRD(matched on DID, on pair name), PRD->STR01, STR01->app01 links
+  mygraphdata11<-rbind(mygraphdata9,prdandapp01_data7)
   
   ##final cleanup of mygraphdata
   mygraphdata13<-mygraphdata11[which(!is.na(mygraphdata11$assocDeliveryNumber)),]
   mygraphdata15<-mygraphdata13[which(!is.na(mygraphdata13$DeliveryNumber)),]
+  
+  ##write output to a csv
+  write.csv(mygraphdata15,file="C:/Users/andrewll/OneDrive - Microsoft/WindowsPowerShell/Data/out/spographdata.csv")
+  
   
   ##plot it
   myfirstnetwork<-graph.data.frame(mygraphdata15,directed = FALSE)
