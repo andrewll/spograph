@@ -73,8 +73,59 @@ spograph2<-function(){
   pids20$assocnetworkpid<-stri_sub(unlist(stri_match_first_regex(pids20$Tags, ",NWPID=[0-9]{6}")),from=8) ##Network PID tag
   pids22<-pids20[which(!is.na(pids20$assocmorpid)),]
   
+  ##create dataframe of Network PIDs with RTEG dates
+  data_networkpids<-pids22$assocnetworkpid
+  data_networkpids3<-as.integer(data_networkpids[which(!is.na(data_networkpids))])
+  data_networkpids5<-pids2[which(pids2$DeliveryNumber %in% data_networkpids3),]
+  
+  ##change date field names for morpids, removing periods
+  netnames <- gsub("^","net",names(data_networkpids5))
+  colnames(data_networkpids5) <- c(netnames)
+  
+  
+  ##merge mor pids dataframe with pids22 to get MOR rteg dates
+  SQLQuery1 <- "SELECT d.DeliveryNumber
+  ,d.DemandID
+  ,d.ProjectTitle
+  ,d.EngineeringGroup
+  ,d.DataCenter
+  ,d.assocnetworkpid
+  ,d.assocmorpid
+  ,e.morDeliveryNumber
+  ,e.morEstimatedRTEGDate
+  ,e.morActualCloseDate
+
+  
+  FROM pids22 d
+  LEFT JOIN morpids e
+  ON d.assocmorpid = e.morDeliveryNumber"
+  
+  pids24 <- sqldf(SQLQuery1)
+  
+  ##merge network pids dataframe with pids24 to get network rteg dates
+  SQLQuery1 <- "SELECT d.DeliveryNumber
+  ,d.DemandID
+  ,d.ProjectTitle
+  ,d.EngineeringGroup
+  ,d.DataCenter
+  ,d.assocmorpid
+  ,d.morDeliveryNumber
+  ,d.morEstimatedRTEGDate
+  ,d.morActualCloseDate
+  ,d.assocnetworkpid
+  ,e.netDeliveryNumber
+  ,e.netEstimatedRTEGDate
+  ,e.netActualCloseDate
+  
+  FROM pids24 d
+  LEFT JOIN data_networkpids5 e
+  ON d.assocnetworkpid = e.netDeliveryNumber"
+  
+  pids26 <- sqldf(SQLQuery1)
+  
+  
   ##create main dataframe with PRD-to-Network PID link
-  mygraphdata<-subset(pids22,select = c("DeliveryNumber","assocnetworkpid"))
+  mygraphdata<-subset(pids22,select = c("DeliveryNumber","assocnetworkpid","EstimatedRTEGDate"))
   mygraphdata<-mutate(mygraphdata, sourcecolor = prdcolor)
   
   #fix column names
