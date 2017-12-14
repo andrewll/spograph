@@ -89,6 +89,7 @@ spograph2<-function(){
   ,d.ProjectTitle
   ,d.EngineeringGroup
   ,d.DataCenter
+  ,d.EstimatedRTEGDate
   ,d.assocnetworkpid
   ,d.assocmorpid
   ,e.morDeliveryNumber
@@ -108,6 +109,7 @@ spograph2<-function(){
   ,d.ProjectTitle
   ,d.EngineeringGroup
   ,d.DataCenter
+  ,d.EstimatedRTEGDate
   ,d.assocmorpid
   ,d.morDeliveryNumber
   ,d.morEstimatedRTEGDate
@@ -125,15 +127,19 @@ spograph2<-function(){
   
   
   ##create main dataframe with PRD-to-Network PID link
-  mygraphdata<-subset(pids22,select = c("DeliveryNumber","assocnetworkpid","EstimatedRTEGDate"))
+  mygraphdata<-subset(pids26,select = c("DeliveryNumber","assocnetworkpid","EstimatedRTEGDate","netEstimatedRTEGDate"))
   mygraphdata<-mutate(mygraphdata, sourcecolor = prdcolor)
   
   #fix column names
   mygraphnames <- gsub("assocnetworkpid","assocDeliveryNumber",names(mygraphdata))
   colnames(mygraphdata)<-c(mygraphnames)
+  mygraphnames <- gsub("^EstimatedRTEGDate","SourceEstimatedRTEGDate",names(mygraphdata))
+  colnames(mygraphdata)<-c(mygraphnames)
+  mygraphnames <- gsub("^netEstimatedRTEGDate","DestinationEstimatedRTEGDate",names(mygraphdata))
+  colnames(mygraphdata)<-c(mygraphnames)
   
   ##create dataframe with Network-to-MOR PID link, and append to main dataframe
-  networkandmor<-subset(pids22,select = c("assocnetworkpid","assocmorpid"), stringsAsFactors = default.stringsAsFactors())
+  networkandmor<-subset(pids26,select = c("assocnetworkpid","assocmorpid", "netEstimatedRTEGDate","morEstimatedRTEGDate"), stringsAsFactors = default.stringsAsFactors())
   networkandmor<-mutate(networkandmor, sourcecolor=networkcolor)
   
   ##fix column names for new dataframe to match the column names in main dataframe
@@ -141,30 +147,38 @@ spograph2<-function(){
   colnames(networkandmor)<-c(networkandmornames)
   networkandmornames<-gsub("assocmorpid","assocDeliveryNumber",names(networkandmor))
   colnames(networkandmor)<-c(networkandmornames)
+  networkandmornames <- gsub("^netEstimatedRTEGDate","SourceEstimatedRTEGDate",names(mygraphdata))
+  colnames(networkandmor)<-c(networkandmornames)
+  networkandmornames <- gsub("^morEstimatedRTEGDate","DestinationEstimatedRTEGDate",names(mygraphdata))
+  colnames(networkandmor)<-c(networkandmornames)
   
   ##create main dataframe with PRD-Network, Network-MOR links
   mygraphdata2<-rbind(mygraphdata,networkandmor)
   
   ##create dataframe with PRD-to-MOR link
-  prdandmor <- subset(pids22, select = c("DeliveryNumber","assocmorpid"))
+  prdandmor <- subset(pids26, select = c("DeliveryNumber","assocmorpid","EstimatedRTEGDate","morEstimatedRTEGDate"))
   prdandmor <- mutate(prdandmor, sourcecolor = prdcolor)
   
   ##fix column names for new dataframe to match the column names in main dataframe
   prdandmornames<-gsub("assocmorpid","assocDeliveryNumber",names(prdandmor)) 
   colnames(prdandmor)<-c(prdandmornames)
+  prdandmornames <- gsub("^EstimatedRTEGDate","SourceEstimatedRTEGDate",names(mygraphdata))
+  colnames(prdandmor)<-c(prdandmornames)
+  prdandmornames <- gsub("^morEstimatedRTEGDate","DestinationEstimatedRTEGDate",names(mygraphdata))
+  colnames(prdandmor)<-c(prdandmornames)
+  
 
   ##create main dataframe with PRD-Network, Network-MOR, PRD-MOR links
   mygraphdata3<-rbind(mygraphdata2,prdandmor)
   
   ##create a dataframe PRD with DemandID info, with method of linking the pair PRD
-  prdpids<-arrange(subset(pids15,select = c("DeliveryNumber","DemandID","ProjectTitle")),DemandID)
+  prdpids<-arrange(subset(pids15,select = c("DeliveryNumber","DemandID","ProjectTitle", "EstimatedRTEGDate")),DemandID)
   prdpids$DemandID<-as.character(prdpids$DemandID)  ##convert Factors into chr
   prdpids$DemandID<-as.integer(prdpids$DemandID)    ##then convert chr into int
   prdpids$ProjectTitle<-stri_replace_all_fixed(prdpids$ProjectTitle," ","")
   prdpids$ProjectTitle<-stri_trans_toupper(prdpids$ProjectTitle)
   prdpids3<-mutate(prdpids,PairName = "")
   prdpids3$PairName<-gsub("^.*CAGG","",prdpids3$ProjectTitle)
-  
   
   ##create secondary dataframe of PRD
   prdpids5<-prdpids3
@@ -178,10 +192,12 @@ spograph2<-function(){
   ,d.DemandID
   ,d.ProjectTitle
   ,d.PairName
+  ,d.EstimatedRTEGDate
   ,e.assocDeliveryNumber
   ,e.assocDemandID
   ,e.assocProjectTitle
   ,e.assocPairName
+  ,e.assocEstimatedRTEGDate
 
   FROM prdpids3 d
   LEFT JOIN prdpids5 e
@@ -191,7 +207,7 @@ spograph2<-function(){
 
   ##clean up prdpids, remove rows where PID is linked to itself
   prdpids11<-prdpids9[which(prdpids9$DeliveryNumber!=prdpids9$assocDeliveryNumber),]
-  prdpids13<-subset(prdpids11,select = c("DeliveryNumber","assocDeliveryNumber"))
+  prdpids13<-subset(prdpids11,select = c("DeliveryNumber","assocDeliveryNumber","EstimatedRTEGDate","assocEstimatedRTEGDate"))
   prdpids14<-mutate(prdpids13, sourcecolor = prdcolor)
   
   ##clean up prdpids, remove rows where PID is linked in reverse from the row above it
@@ -200,6 +216,8 @@ spograph2<-function(){
   cleanupprdpids<-mutate(cleanupprdpids, DeliveryNumber="",assocDeliveryNumber = "",sourcecolor = "#FFFF00") 
   cleanupprdpids<-data.frame(prdpids14[oddrows,])
   prdpids14<-cleanupprdpids
+  
+  #fix column names for prdpids
   
   
   ##create main dataframe with PRD-Network, Network-MOR, PRD-MOR, PRD-PRD(cluster pair matched on DID) links
